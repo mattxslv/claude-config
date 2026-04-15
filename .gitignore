@@ -1,0 +1,26 @@
+# Credentials — never commit
+.credentials.json
+mcp-needs-auth-cache.json
+
+# Runtime state
+.jira-session
+history.jsonl
+settings.local.json
+
+# Large auto-generated dirs
+cache/
+plugins/
+projects/
+image-cache/
+paste-cache/
+shell-snapshots/
+session-env/
+sessions/
+tasks/
+debug/
+file-history/
+backups/
+ide/
+agents/
+skills/
+commands/
