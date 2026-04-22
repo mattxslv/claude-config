@@ -1,0 +1,4 @@
+GITLAB_BASE_URL=https://gitlab.com
+GITLAB_TOKEN=glpat-e1T-zmZb0gel_UhqILfr1GM6MQpvOjEKdTpseXlkdA8.01.170jmktcu
+GITLAB_PROJECT_ID=81356854
+GITLAB_PROJECT_PATH=dictcloud/pemedes

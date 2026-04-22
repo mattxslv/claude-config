@@ -1,8 +1,6 @@
 # Credentials — never commit
 .credentials.json
 mcp-needs-auth-cache.json
-.gitlab-config
-.jira-config
 
 # Runtime state
 .jira-session
