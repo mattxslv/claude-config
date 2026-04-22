@@ -4,40 +4,62 @@ from datetime import datetime, timezone, timedelta
 import google.generativeai as genai
 
 GITLAB_TOKEN = os.environ["GITLAB_TOKEN"]
-GITLAB_PROJECT_ID = os.environ["GITLAB_PROJECT_ID"]
 GITLAB_BASE = "https://gitlab.com/api/v4"
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
-GITHUB_REPO = os.environ.get("GITHUB_REPO", "deadPixel505/pemedes-local")
-GITHUB_BRANCH = os.environ.get("GITHUB_BRANCH", "staging")
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 
+# All projects to track — add new ones here
+PROJECTS = [
+    {
+        "name": "PEMEDES",
+        "github_repo": os.environ.get("GITHUB_REPO_PEMEDES", "deadPixel505/pemedes-local"),
+        "github_branch": os.environ.get("GITHUB_BRANCH_PEMEDES", "staging"),
+        "gitlab_project_id": os.environ.get("GITLAB_PROJECT_ID_PEMEDES", "81356854"),
+    },
+    {
+        "name": "DTAP",
+        "github_repo": os.environ.get("GITHUB_REPO_DTAP", "renzvalentino/DTAP"),
+        "github_branch": os.environ.get("GITHUB_BRANCH_DTAP", "main"),
+        "gitlab_project_id": os.environ.get("GITLAB_PROJECT_ID_DTAP", "81354540"),
+    },
+    {
+        "name": "Startup PH",
+        "github_repo": os.environ.get("GITHUB_REPO_STARTUPPH", "mattxslv/startup-ph"),
+        "github_branch": os.environ.get("GITHUB_BRANCH_STARTUPPH", "main"),
+        "gitlab_project_id": os.environ.get("GITLAB_PROJECT_ID_STARTUPPH", "81533201"),
+    },
+]
 
-def get_recent_commits():
+
+def get_recent_commits(github_repo, github_branch):
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     resp = requests.get(
-        f"https://api.github.com/repos/{GITHUB_REPO}/commits",
-        params={"sha": GITHUB_BRANCH, "since": since, "per_page": 100},
+        f"https://api.github.com/repos/{github_repo}/commits",
+        params={"sha": github_branch, "since": since, "per_page": 100},
         headers={"Authorization": f"token {GITHUB_TOKEN}"},
     )
     resp.raise_for_status()
     return [c["commit"]["message"].split("\n")[0] for c in resp.json()]
 
 
-def group_commits_with_gemini(commits):
+def group_commits_with_gemini(project_name, commits):
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel("gemini-2.5-flash")
 
     commit_list = "\n".join(f"- {c}" for c in commits)
-    prompt = f"""Group these git commits into logical feature/fix groups for GitLab work items.
+    prompt = f"""You are a technical project manager writing GitLab work items for the {project_name} project.
+
+Group these git commits into logical feature/fix groups. Write clear, informative titles and descriptions that explain what was built and why it matters — not just a list of commit messages.
 
 Commits:
 {commit_list}
 
 Return a JSON array only, no markdown, no extra text. Each item:
-- "title": work item title, imperative mood, under 70 chars
-- "description": markdown bullet list of commits in this group
+- "title": work item title, imperative mood, under 70 chars, prefixed with feat/fix/chore
+- "description": 2-3 sentence summary of what was done and its impact, followed by a bullet list of the commits
 
-Example: [{{"title": "feat: User auth flow", "description": "- feat: add login\\n- fix: token expiry"}}]"""
+Example:
+[{{"title": "feat: User authentication flow", "description": "Implemented secure login and session management for riders and operators. Users can now register, verify email, and maintain persistent sessions.\\n\\n**Commits:**\\n- feat: add login page\\n- fix: token expiry handling"}}]"""
 
     response = model.generate_content(prompt)
     text = response.text.strip()
@@ -48,41 +70,63 @@ Example: [{{"title": "feat: User auth flow", "description": "- feat: add login\\
     return json.loads(text.strip())
 
 
-def create_and_close_issue(title, description):
+def create_and_close_issue(gitlab_project_id, title, description):
     headers = {"PRIVATE-TOKEN": GITLAB_TOKEN, "Content-Type": "application/json"}
     resp = requests.post(
-        f"{GITLAB_BASE}/projects/{GITLAB_PROJECT_ID}/issues",
+        f"{GITLAB_BASE}/projects/{gitlab_project_id}/issues",
         headers=headers,
         json={"title": title, "description": description},
     )
     resp.raise_for_status()
     iid = resp.json()["iid"]
     requests.put(
-        f"{GITLAB_BASE}/projects/{GITLAB_PROJECT_ID}/issues/{iid}",
+        f"{GITLAB_BASE}/projects/{gitlab_project_id}/issues/{iid}",
         headers=headers,
         json={"state_event": "close"},
     ).raise_for_status()
-    print(f"  #{iid} [closed] {title[:60]}")
+    print(f"    #{iid} [closed] {title[:60]}")
+
+
+def run_project(project):
+    name = project["name"]
+    print(f"\n── {name} ({project['github_repo']}:{project['github_branch']})")
+
+    try:
+        commits = get_recent_commits(project["github_repo"], project["github_branch"])
+    except requests.HTTPError as e:
+        print(f"  ⚠ Could not fetch commits: {e}")
+        return
+
+    if not commits:
+        print(f"  No commits in the last 24 hours — skipping.")
+        return
+
+    print(f"  {len(commits)} commit(s) found. Grouping with Gemini...")
+    try:
+        groups = group_commits_with_gemini(name, commits)
+    except Exception as e:
+        print(f"  ⚠ Gemini grouping failed: {e}")
+        return
+
+    print(f"  Creating {len(groups)} issue(s)...")
+    today = datetime.now().strftime("%Y-%m-%d")
+    for group in groups:
+        desc = f"**Daily update: {today}**\n\n{group['description']}"
+        try:
+            create_and_close_issue(project["gitlab_project_id"], group["title"], desc)
+        except Exception as e:
+            print(f"  ⚠ Failed to create issue '{group['title']}': {e}")
 
 
 def main():
     today = datetime.now().strftime("%Y-%m-%d")
     print(f"GitLab daily update — {today}")
+    print(f"Running for {len(PROJECTS)} project(s)...")
 
-    commits = get_recent_commits()
-    if not commits:
-        print("No commits in the last 24 hours. Skipping.")
-        return
+    for project in PROJECTS:
+        run_project(project)
 
-    print(f"Found {len(commits)} commit(s). Grouping with Gemini...")
-    groups = group_commits_with_gemini(commits)
-
-    print(f"Creating {len(groups)} issue(s)...")
-    for group in groups:
-        desc = f"**Daily update: {today}**\n\n{group['description']}"
-        create_and_close_issue(group["title"], desc)
-
-    print("Done.")
+    print("\nDone.")
 
 
 if __name__ == "__main__":
