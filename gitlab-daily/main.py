@@ -7,6 +7,7 @@ GITLAB_TOKEN = os.environ["GITLAB_TOKEN"]
 GITLAB_BASE = "https://gitlab.com/api/v4"
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+GITHUB_AUTHOR = os.environ.get("GITHUB_AUTHOR", "mattxslv")
 
 # All projects to track — add new ones here
 PROJECTS = [
@@ -56,7 +57,7 @@ def get_recent_commits(github_repo):
         try:
             resp = requests.get(
                 f"https://api.github.com/repos/{github_repo}/commits",
-                params={"sha": branch, "since": since, "per_page": 100},
+                params={"sha": branch, "since": since, "per_page": 100, "author": GITHUB_AUTHOR},
                 headers=headers,
             )
             resp.raise_for_status()
