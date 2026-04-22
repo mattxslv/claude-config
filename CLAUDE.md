@@ -67,14 +67,64 @@
 
 # GitLab Daily Automation
 
-Commits are automatically grouped and posted as closed GitLab work items every day at 11pm PHT via a Cloud Run Job.
+Automatically groups today's commits by feature and posts them as closed GitLab work items. Uses Gemini to do the grouping intelligently.
 
-- **Job**: `gitlab-daily-job` on GCP project `ai-innov-474401`, region `asia-southeast1`
-- **Scheduler**: Cloud Scheduler `gitlab-daily-update` — `0 15 * * *` UTC (= 11pm PHT)
-- **Script**: `~/.claude/gitlab-daily/main.py` — pulls from GitHub `staging` branch, groups with Gemini, creates+closes GitLab issues
-- **Config**: `~/.claude/.gitlab-config` (GitLab token + project ID)
-- **To trigger manually**: `gcloud run jobs execute gitlab-daily-job --region asia-southeast1 --project ai-innov-474401`
-- **To update the script**: edit `~/.claude/gitlab-daily/main.py`, then run `gcloud builds submit --tag gcr.io/ai-innov-474401/gitlab-daily-job:latest --project ai-innov-474401 ~/.claude/gitlab-daily/`
+## How it works
+- Script: `~/.claude/gitlab-daily/main.py` — reads commits from GitHub, calls Gemini to group them, creates+closes GitLab issues
+- Config: `~/.claude/.gitlab-config` — all tokens and project-specific values live here
+- Automated: runs daily at 11pm PHT via Cloud Run Job + Cloud Scheduler (set up once per project)
+- Manual: just say "update GitLab" and Claude will trigger it
+
+## Config file (~/.claude/.gitlab-config)
+```
+GITLAB_BASE_URL=https://gitlab.com
+GITLAB_TOKEN=<GitLab personal access token>
+GITLAB_PROJECT_ID=<GitLab project numeric ID>
+GITLAB_PROJECT_PATH=<group/project-name>
+
+GITHUB_TOKEN=<GitHub personal access token>
+GITHUB_REPO=<username/repo>
+GITHUB_BRANCH=<branch to track, e.g. staging or main>
+
+GEMINI_API_KEY=<Google AI Studio API key>
+```
+
+## Setting up for a new project
+1. Update `~/.claude/.gitlab-config` with the new project's values
+2. Get GitLab project ID: go to the project → Settings → General → Project ID
+3. Get Gemini API key: aistudio.google.com → Get API key → use existing GCP project
+
+## Setting up automated Cloud Run Job (optional, needs GCP)
+```bash
+# Build and push image (only needed once or when script changes)
+gcloud builds submit --tag gcr.io/<GCP_PROJECT>/gitlab-daily-job:latest --project <GCP_PROJECT> ~/.claude/gitlab-daily/
+
+# Create the job (run once per project)
+source ~/.claude/.gitlab-config
+gcloud run jobs create gitlab-daily-job \
+  --image gcr.io/<GCP_PROJECT>/gitlab-daily-job:latest \
+  --region asia-southeast1 --project <GCP_PROJECT> \
+  --set-env-vars "GITLAB_TOKEN=${GITLAB_TOKEN},GITLAB_PROJECT_ID=${GITLAB_PROJECT_ID},GITHUB_TOKEN=${GITHUB_TOKEN},GITHUB_REPO=${GITHUB_REPO},GITHUB_BRANCH=${GITHUB_BRANCH},GEMINI_API_KEY=${GEMINI_API_KEY},GCP_PROJECT_ID=<GCP_PROJECT>,VERTEX_REGION=us-east5" \
+  --max-retries 1 --task-timeout 300
+
+# Create Cloud Scheduler (11pm PHT = 15:00 UTC)
+gcloud scheduler jobs create http gitlab-daily-update \
+  --location asia-southeast1 --project <GCP_PROJECT> \
+  --schedule "0 15 * * *" --time-zone "UTC" \
+  --uri "https://asia-southeast1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/<GCP_PROJECT>/jobs/gitlab-daily-job:run" \
+  --http-method POST \
+  --oauth-service-account-email <PROJECT_NUMBER>-compute@developer.gserviceaccount.com
+```
+
+## Manual trigger
+```bash
+gcloud run jobs execute gitlab-daily-job --region asia-southeast1 --project <GCP_PROJECT>
+```
+
+## Current project (pemedes)
+- GCP project: `ai-innov-474401`, region: `asia-southeast1`
+- GitLab: `dictcloud/pemedes` (ID: `81356854`)
+- GitHub: `deadPixel505/pemedes-local`, branch: `staging`
 
 # Pre-Push Checklist (universal)
 Before every `git push`:
