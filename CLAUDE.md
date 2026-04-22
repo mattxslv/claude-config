@@ -62,24 +62,19 @@
 # What to Avoid
 - Don't over-engineer — simplest solution that works
 - Don't add logging/error handling beyond what's needed
-- Don't future-proof code for hypothetical requirements
+- Don't future-proof code for hypothetical requirementsq
 - Don't add features not explicitly asked for
 
-# Jira Integration (global)
+# GitLab Daily Automation
 
-Everything lives in `~/.claude/` — just copy the folder to another machine and it works.
+Commits are automatically grouped and posted as closed GitLab work items every day at 11pm PHT via a Cloud Run Job.
 
-Config: `~/.claude/.jira-config`
-```
-JIRA_BASE_URL=https://dict-team-i7qpdlo9.atlassian.net
-JIRA_EMAIL=matthewjericho.silva@dict.gov.ph
-JIRA_TOKEN=<your Atlassian API token>
-JIRA_PROJECT_KEY=SCRUM
-JIRA_ACCOUNT_ID=712020:25aeb3fd-27d2-4873-8744-0f39d9e1d047
-JIRA_SPRINT_ID=101
-```
-
-Transition IDs: `21` = In Progress, `41` = Done.
+- **Job**: `gitlab-daily-job` on GCP project `ai-innov-474401`, region `asia-southeast1`
+- **Scheduler**: Cloud Scheduler `gitlab-daily-update` — `0 15 * * *` UTC (= 11pm PHT)
+- **Script**: `~/.claude/gitlab-daily/main.py` — pulls from GitHub `staging` branch, groups with Gemini, creates+closes GitLab issues
+- **Config**: `~/.claude/.gitlab-config` (GitLab token + project ID)
+- **To trigger manually**: `gcloud run jobs execute gitlab-daily-job --region asia-southeast1 --project ai-innov-474401`
+- **To update the script**: edit `~/.claude/gitlab-daily/main.py`, then run `gcloud builds submit --tag gcr.io/ai-innov-474401/gitlab-daily-job:latest --project ai-innov-474401 ~/.claude/gitlab-daily/`
 
 # Pre-Push Checklist (universal)
 Before every `git push`:
