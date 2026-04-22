@@ -13,33 +13,62 @@ PROJECTS = [
     {
         "name": "PEMEDES",
         "github_repo": os.environ.get("GITHUB_REPO_PEMEDES", "deadPixel505/pemedes-local"),
-        "github_branch": os.environ.get("GITHUB_BRANCH_PEMEDES", "staging"),
         "gitlab_project_id": os.environ.get("GITLAB_PROJECT_ID_PEMEDES", "81356854"),
     },
     {
         "name": "DTAP",
         "github_repo": os.environ.get("GITHUB_REPO_DTAP", "renzvalentino/DTAP"),
-        "github_branch": os.environ.get("GITHUB_BRANCH_DTAP", "main"),
         "gitlab_project_id": os.environ.get("GITLAB_PROJECT_ID_DTAP", "81354540"),
     },
     {
         "name": "Startup PH",
         "github_repo": os.environ.get("GITHUB_REPO_STARTUPPH", "mattxslv/startup-ph"),
-        "github_branch": os.environ.get("GITHUB_BRANCH_STARTUPPH", "main"),
         "gitlab_project_id": os.environ.get("GITLAB_PROJECT_ID_STARTUPPH", "81533201"),
     },
 ]
 
 
-def get_recent_commits(github_repo, github_branch):
+def get_all_branches(github_repo):
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    branches, page = [], 1
+    while True:
+        resp = requests.get(
+            f"https://api.github.com/repos/{github_repo}/branches",
+            params={"per_page": 100, "page": page},
+            headers=headers,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not data:
+            break
+        branches.extend(b["name"] for b in data)
+        page += 1
+    return branches
+
+
+def get_recent_commits(github_repo):
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-    resp = requests.get(
-        f"https://api.github.com/repos/{github_repo}/commits",
-        params={"sha": github_branch, "since": since, "per_page": 100},
-        headers={"Authorization": f"token {GITHUB_TOKEN}"},
-    )
-    resp.raise_for_status()
-    return [c["commit"]["message"].split("\n")[0] for c in resp.json()]
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    seen_shas, commits = set(), []
+
+    branches = get_all_branches(github_repo)
+    for branch in branches:
+        try:
+            resp = requests.get(
+                f"https://api.github.com/repos/{github_repo}/commits",
+                params={"sha": branch, "since": since, "per_page": 100},
+                headers=headers,
+            )
+            resp.raise_for_status()
+            for c in resp.json():
+                if c["sha"] not in seen_shas:
+                    seen_shas.add(c["sha"])
+                    msg = c["commit"]["message"].split("\n")[0]
+                    commits.append(f"[{branch}] {msg}")
+        except Exception:
+            pass
+
+    return commits
 
 
 def group_commits_with_gemini(project_name, commits):
@@ -89,10 +118,10 @@ def create_and_close_issue(gitlab_project_id, title, description):
 
 def run_project(project):
     name = project["name"]
-    print(f"\n── {name} ({project['github_repo']}:{project['github_branch']})")
+    print(f"\n── {name} ({project['github_repo']} — all branches)")
 
     try:
-        commits = get_recent_commits(project["github_repo"], project["github_branch"])
+        commits = get_recent_commits(project["github_repo"])
     except requests.HTTPError as e:
         print(f"  ⚠ Could not fetch commits: {e}")
         return
