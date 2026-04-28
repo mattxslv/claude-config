@@ -62,8 +62,9 @@
 # What to Avoid
 - Don't over-engineer — simplest solution that works
 - Don't add logging/error handling beyond what's needed
-- Don't future-proof code for hypothetical requirementsq
+- Don't future-proof code for hypothetical requirements
 - Don't add features not explicitly asked for
+- Never use Playwright — not for testing, not for UI verification, not for any purpose
 
 # GitLab Daily Automation
 
