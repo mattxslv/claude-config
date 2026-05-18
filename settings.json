@@ -61,6 +61,6 @@
       }
     }
   },
-  "effortLevel": "high",
+  "effortLevel": "normal",
   "skipDangerousModePermissionPrompt": true
 }
