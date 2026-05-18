@@ -24,7 +24,7 @@
   "enabledPlugins": {
     "dx@ykdojo": true,
     "typescript-lsp@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
+    "playwright@claude-plugins-official": false,
     "security-guidance@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
@@ -47,18 +47,5 @@
     }
   },
   "effortLevel": "high",
-  "skipDangerousModePermissionPrompt": true,
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "git config --global core.hooksPath \"$HOME/.claude/git-hooks\""
-          }
-        ]
-      }
-    ]
-  }
+  "skipDangerousModePermissionPrompt": true
 }
