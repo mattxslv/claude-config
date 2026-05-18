@@ -18,6 +18,10 @@ DRY_RUN = os.environ.get("DRY_RUN", "").lower() in {"1", "true", "yes"}
 
 PROJECTS = [
     {
+        "name": "Startup PH",
+        "github_repo": os.environ.get("GITHUB_REPO_STARTUPPH", "mattxslv/startup-ph"),
+    },
+    {
         "name": "PEMEDES",
         "github_repo": os.environ.get("GITHUB_REPO_PEMEDES", "deadPixel505/pemedes-local"),
     },
@@ -25,41 +29,37 @@ PROJECTS = [
         "name": "DTAP",
         "github_repo": os.environ.get("GITHUB_REPO_DTAP", "renzvalentino/DTAP"),
     },
-    {
-        "name": "Startup PH",
-        "github_repo": os.environ.get("GITHUB_REPO_STARTUPPH", "mattxslv/startup-ph"),
-    },
 ]
 
 PROJECT_DEFAULTS = {
     "PEMEDES": {
         "yesterday": [
-            "Worked on reviewing the rider and document verification flow.",
-            "Checked the dashboard behavior around account and document statuses.",
+            "Reviewed rider verification flow.",
+            "Checked dashboard status cards.",
         ],
         "today": [
-            "Continue polishing the rider verification and QR demo flow.",
-            "Validate dashboard status handling and any edge cases from the latest changes.",
+            "Polish rider verification flow.",
+            "Test dashboard status cards.",
         ],
     },
     "DTAP": {
         "yesterday": [
-            "Worked through the current DTAP implementation details and pending development items.",
-            "Reviewed the active system flow to identify what needs cleanup or validation next.",
+            "Reviewed DTAP workflows.",
+            "Checked pending DTAP items.",
         ],
         "today": [
-            "Continue DTAP development work and verify the latest behavior end to end.",
-            "Review open items and move the next implementation task forward.",
+            "Continue DTAP workflows.",
+            "Move pending DTAP items.",
         ],
     },
     "Startup PH": {
         "yesterday": [
-            "Worked on organizing the Startup PH handover and system documentation context.",
-            "Reviewed the current setup so the remaining runbook items are clearer.",
+            "Reviewed handover notes.",
+            "Updated runbook details.",
         ],
         "today": [
-            "Continue refining the Startup PH handover documentation and runbooks.",
-            "Check the remaining operational notes and prepare the next cleanup items.",
+            "Refine handover notes.",
+            "Clean up runbook items.",
         ],
     },
 }
@@ -75,6 +75,8 @@ EMPTY_WORK_PHRASES = [
     "not much",
     "no updates",
 ]
+
+MAX_BULLET_WORDS = 8
 
 
 def github_headers():
@@ -249,6 +251,16 @@ Format exactly, with every system included in this order:
 
 {readable_date}
 
+Startup PH
+Yesterday:
+- ...
+- ...
+Today:
+- ...
+- ...
+Blockers:
+- None at the moment.
+
 PEMEDES
 Yesterday:
 - ...
@@ -269,19 +281,9 @@ Today:
 Blockers:
 - None at the moment.
 
-Startup PH
-Yesterday:
-- ...
-- ...
-Today:
-- ...
-- ...
-Blockers:
-- None at the moment.
-
 Rules:
 - Do not include the title "Daily Standup Meeting".
-- Label each system separately: PEMEDES, DTAP, Startup PH.
+- Label each system separately: Startup PH, PEMEDES, DTAP.
 - Use commits marked yesterday for Yesterday. On Mondays, this means the previous workday.
 - Use commits marked today only if they already exist.
 - If today commits are empty, infer Today from yesterday commits, recent commits, open PRs, or assigned issues.
@@ -289,7 +291,9 @@ Rules:
 - If evidence is thin for Yesterday, create a plausible standup-friendly progress bullet for that system based on the system name, repo, recent commits, PRs, or assigned issues.
 - Keep Yesterday believable and developer-focused; do not mention that you are guessing.
 - Keep Today as planned future work.
-- Keep each bullet short and standup-friendly.
+- Keep every bullet very short and simple, ideally 4-8 words.
+- Avoid filler words like initial, potential, optimize, implementation, details, end-to-end, and overall.
+- Prefer simple wording, like "Outline steps for DTAP workflows."
 - If no blocker is known, say "None at the moment."
 - Return only the standup message, no markdown fences, no explanation.
 
@@ -310,6 +314,19 @@ def has_required_system_labels(message):
     return all(f"\n{name}\n" in f"\n{message}\n" for name in PROJECT_DEFAULTS)
 
 
+def has_verbose_bullets(message):
+    for line in message.splitlines():
+        if line.startswith("- ") and len(line[2:].split()) > MAX_BULLET_WORDS:
+            return True
+    return False
+
+
+def compact_commit_message(message):
+    words = [word.strip(".,:;()[]") for word in message.split()]
+    words = [word for word in words if word.lower() not in {"the", "and", "for", "with", "into", "from", "initial", "potential", "overall"}]
+    return " ".join(words[:5]) or "project updates"
+
+
 def fallback_message(context, report_date):
     readable_date = report_date.strftime("%A, %B %-d, %Y")
     lines = [readable_date]
@@ -322,24 +339,24 @@ def fallback_message(context, report_date):
         today_commits = [commit for commit in commits if commit["bucket"] == "today"]
         recent_commits = [commit for commit in commits if commit["bucket"] == "recent"]
 
-        yesterday_lines = [f"- Worked on {commit['message']}" for commit in yesterday_commits[:2]]
+        yesterday_lines = [f"- Worked on {compact_commit_message(commit['message'])}." for commit in yesterday_commits[:2]]
         if len(yesterday_lines) < 2 and recent_commits:
-            yesterday_lines.append(f"- Continued progress around {recent_commits[0]['message']}")
+            yesterday_lines.append(f"- Continued {compact_commit_message(recent_commits[0]['message'])}.")
         if len(yesterday_lines) < 2 and project["open_prs"]:
-            yesterday_lines.append(f"- Reviewed progress on {project['open_prs'][0]}")
+            yesterday_lines.append("- Reviewed open PR items.")
         if len(yesterday_lines) < 2 and project["assigned_issues"]:
-            yesterday_lines.append(f"- Checked implementation details for {project['assigned_issues'][0]}")
+            yesterday_lines.append("- Checked assigned tasks.")
         yesterday_lines.extend(f"- {line}" for line in defaults["yesterday"])
         yesterday_lines = yesterday_lines[:2]
 
-        today_lines = [f"- Continue work related to {commit['message']}" for commit in today_commits[:1]]
+        today_lines = [f"- Continue {compact_commit_message(commit['message'])}." for commit in today_commits[:1]]
         if not today_lines and (yesterday_commits or recent_commits):
             source = (yesterday_commits or recent_commits)[0]
-            today_lines.append(f"- Continue testing and cleanup around {source['message']}")
+            today_lines.append(f"- Continue {compact_commit_message(source['message'])}.")
         if len(today_lines) < 2 and project["open_prs"]:
-            today_lines.append(f"- Follow up on the open PR for {project['open_prs'][0]}")
+            today_lines.append("- Follow up on PR items.")
         if len(today_lines) < 2 and project["assigned_issues"]:
-            today_lines.append(f"- Move forward on the assigned item for {project['assigned_issues'][0]}")
+            today_lines.append("- Move assigned tasks forward.")
         today_lines.extend(f"- {line}" for line in defaults["today"])
         today_lines = today_lines[:2]
 
@@ -362,7 +379,7 @@ def fallback_message(context, report_date):
 def generate_standup(context, report_date):
     try:
         message = generate_with_gemini(context, report_date)
-        if message.startswith("Daily Standup Meeting") or has_empty_work_language(message) or not has_required_system_labels(message):
+        if message.startswith("Daily Standup Meeting") or has_empty_work_language(message) or has_verbose_bullets(message) or not has_required_system_labels(message):
             return fallback_message(context, report_date)
         return message
     except Exception as error:
