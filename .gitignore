@@ -9,6 +9,8 @@ mcp-needs-auth-cache.json
 .jira-session
 history.jsonl
 settings.local.json
+__pycache__/
+*.pyc
 
 # Large auto-generated dirs
 cache/
