@@ -85,57 +85,7 @@ Automatically groups today's commits by feature and posts them as closed GitLab 
 
 To add a new project, add an entry to the `PROJECTS` list in `~/.claude/gitlab-daily/main.py` and rebuild the Docker image.
 
-## Config file (~/.claude/.gitlab-config)
-Shared tokens only — project-specific values live in the script:
-```
-GITLAB_TOKEN=<GitLab personal access token>
-GITHUB_TOKEN=<GitHub personal access token>
-GEMINI_API_KEY=<Google AI Studio API key>
-```
-
-## GCP setup (already live)
-- GCP project: `ai-innov-474401`, region: `asia-southeast1`
-- Cloud Run job: `gitlab-daily-job`
-- Cloud Scheduler: `gitlab-daily-update`, runs at `0 15 * * *` UTC (11pm PHT)
-
-## Rebuild and redeploy (run when main.py changes)
-```bash
-source ~/.claude/.gitlab-config
-gcloud builds submit --tag gcr.io/ai-innov-474401/gitlab-daily-job:latest --project ai-innov-474401 ~/.claude/gitlab-daily/
-gcloud run jobs update gitlab-daily-job \
-  --image gcr.io/ai-innov-474401/gitlab-daily-job:latest \
-  --region asia-southeast1 --project ai-innov-474401
-```
-
-## First-time Cloud Run + Scheduler setup (reference, already done)
-```bash
-source ~/.claude/.gitlab-config
-
-# Create job
-gcloud run jobs create gitlab-daily-job \
-  --image gcr.io/ai-innov-474401/gitlab-daily-job:latest \
-  --region asia-southeast1 --project ai-innov-474401 \
-  --set-env-vars "GITLAB_TOKEN=${GITLAB_TOKEN},GITHUB_TOKEN=${GITHUB_TOKEN},GEMINI_API_KEY=${GEMINI_API_KEY}" \
-  --max-retries 1 --task-timeout 300
-
-# Create scheduler (11pm PHT = 15:00 UTC)
-gcloud scheduler jobs create http gitlab-daily-update \
-  --location asia-southeast1 --project ai-innov-474401 \
-  --schedule "0 15 * * *" --time-zone "UTC" \
-  --uri "https://asia-southeast1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/ai-innov-474401/jobs/gitlab-daily-job:run" \
-  --http-method POST \
-  --oauth-service-account-email $(gcloud projects describe ai-innov-474401 --format="value(projectNumber)")-compute@developer.gserviceaccount.com
-```
-
-## Manual trigger
-```bash
-gcloud run jobs execute gitlab-daily-job --region asia-southeast1 --project ai-innov-474401
-```
-
-## Check logs
-```bash
-gcloud run jobs executions list --job gitlab-daily-job --region asia-southeast1 --project ai-innov-474401
-```
+Commands reference: `~/.claude/gitlab-daily/COMMANDS.md`
 
 # Model Selection
 - Default model: Sonnet 4-6 (fast, handles most tasks)
