@@ -62,9 +62,8 @@
 # What to Avoid
 - Don't over-engineer — simplest solution that works
 - Don't add logging/error handling beyond what's needed
-- Don't future-proof code for hypothetical requirements
+- Don't future-proof code for hypothetical requirementsq
 - Don't add features not explicitly asked for
-- Never use Playwright — not for testing, not for UI verification, not for any purpose
 
 # GitLab Daily Automation
 
@@ -137,6 +136,12 @@ gcloud run jobs execute gitlab-daily-job --region asia-southeast1 --project ai-i
 ```bash
 gcloud run jobs executions list --job gitlab-daily-job --region asia-southeast1 --project ai-innov-474401
 ```
+
+# Model Selection
+- Default model: Sonnet 4-6 (fast, handles most tasks)
+- Switch to Opus 4-7 for: full feature builds, complex architecture decisions, major refactors, deep debugging
+- To switch: `/model claude-opus-4-7` at session start, `/model claude-sonnet-4-6` to switch back
+- Proactively suggest Opus when a task is clearly complex or will span many files
 
 # Pre-Push Checklist (universal)
 Before every `git push`:
