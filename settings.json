@@ -2,10 +2,11 @@
   "apiKeyHelper": "",
   "env": {
     "ANTHROPIC_VERTEX_PROJECT_ID": "ai-innov-474401",
-    "CLOUD_ML_REGION": "us-east5"
+    "CLOUD_ML_REGION": "global"
   },
   "permissions": {
     "allow": [
+      "Bash(*)",
       "Bash(git push:*)"
     ],
     "deny": [
@@ -15,14 +16,28 @@
   },
   "model": "claude-sonnet-4-6[1m]",
   "modelOverrides": {
-    "claude-sonnet-4-5": "claude-sonnet-4-6"
+    "claude-sonnet-4-5": "claude-sonnet-4-6",
+    "claude-opus-4-5": "claude-opus-4-7"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git config --global core.hooksPath \"$HOME/.claude/git-hooks\""
+          }
+        ]
+      }
+    ]
   },
   "statusLine": {
     "type": "command",
     "command": "input=$(cat); model=$(echo \"$input\" | jq -r '.model.display_name // .model.id' | sed -E 's/^Claude //'); dir=$(basename \"$(echo \"$input\" | jq -r '.workspace.current_dir')\"); cwd=$(echo \"$input\" | jq -r '.workspace.current_dir'); git_info=\"\"; if git -C \"$cwd\" rev-parse --git-dir >/dev/null 2>&1; then branch=$(git -C \"$cwd\" --no-optional-locks branch --show-current 2>/dev/null || echo 'detached'); git_info=\"\ud83d\udd00$branch\"; uncommitted=$(git -C \"$cwd\" --no-optional-locks status --porcelain 2>/dev/null); if [ -n \"$uncommitted\" ]; then files=$(echo \"$uncommitted\" | head -3 | awk '{print $NF}' | paste -sd ',' - | sed 's/,/, /g'); git_info=\"$git_info ($files uncommitted\"; count=$(echo \"$uncommitted\" | wc -l); [ \"$count\" -gt 3 ] && git_info=\"$git_info +$((count-3)) more\"; git_info=\"$git_info,\"; fi; remote=$(git -C \"$cwd\" --no-optional-locks rev-parse --abbrev-ref @{u} 2>/dev/null); if [ -n \"$remote\" ]; then ahead=$(git -C \"$cwd\" --no-optional-locks rev-list --count $remote..HEAD 2>/dev/null || echo 0); behind=$(git -C \"$cwd\" --no-optional-locks rev-list --count HEAD..$remote 2>/dev/null || echo 0); last_fetch=$(find \"$(git -C \"$cwd\" rev-parse --git-dir)/FETCH_HEAD\" -mmin +0 2>/dev/null | xargs stat -c %Y 2>/dev/null || echo 0); if [ \"$last_fetch\" -ne 0 ]; then now=$(date +%s); diff=$((($now - $last_fetch) / 60)); if [ \"$diff\" -lt 60 ]; then sync_info=\" synced ${diff}m ago\"; else sync_info=\" synced ${diff}h ago\"; fi; else sync_info=\"\"; fi; if [ \"$ahead\" -gt 0 ] && [ \"$behind\" -gt 0 ]; then git_info=\"$git_info $ahead ahead, $behind behind)\"; elif [ \"$ahead\" -gt 0 ]; then git_info=\"$git_info $ahead ahead)\"; elif [ \"$behind\" -gt 0 ]; then git_info=\"$git_info $behind behind)\"; else git_info=\"$git_info$sync_info)\"; fi; else git_info=\"$git_info)\"; fi; fi; used=$(echo \"$input\" | jq -r '.context_window.used_percentage // empty'); if [ -n \"$used\" ]; then pct=$(printf \"%.0f\" \"$used\"); ctx_size=$(echo \"$input\" | jq -r '.context_window.context_window_size // 200000'); ctx_k=$((ctx_size / 1000)); filled=$((pct / 10)); empty=$((10 - filled)); bar=\"\"; for ((i=0; i<filled; i++)); do bar+=\"\u2588\"; done; for ((i=0; i<empty; i++)); do bar+=\"\u2591\"; done; token_info=\"$bar ${pct}% of ${ctx_k}k tokens\"; else token_info=\"\"; fi; line1=\"$model | \ud83d\udcc1$dir\"; [ -n \"$git_info\" ] && line1=\"$line1 | $git_info\"; [ -n \"$token_info\" ] && line1=\"$line1 | $token_info\"; echo \"$line1\""
   },
   "enabledPlugins": {
-    "dx@ykdojo": true,
+    "dx@ykdojo": false,
     "typescript-lsp@claude-plugins-official": true,
     "playwright@claude-plugins-official": false,
     "security-guidance@claude-plugins-official": true,
