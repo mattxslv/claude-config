@@ -27,6 +27,14 @@ file-history/
 backups/
 ide/
 agents/
-skills/
+skills/*
+!skills/developer-onboarding
+!skills/developer-onboarding/**
+!skills/research-onboarding
+!skills/research-onboarding/**
+!skills/planner-onboarding
+!skills/planner-onboarding/**
+!skills/skills-updater
+!skills/skills-updater/**
 commands/
 
