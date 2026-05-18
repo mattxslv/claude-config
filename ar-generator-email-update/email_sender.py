@@ -11,8 +11,8 @@ REPORT_OWNER_NAME = os.environ.get("AR_OWNER_NAME", "Matthew Jericho Silva")
 
 
 def send_telegram_confirmation(period: str, resend_response: dict | None) -> None:
-    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    bot_token = os.environ.get("AR_TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("AR_TELEGRAM_CHAT_ID") or os.environ.get("TELEGRAM_CHAT_ID")
     if not bot_token or not chat_id:
         return
 
