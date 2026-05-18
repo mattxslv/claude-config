@@ -1,2 +1,0 @@
-#!/bin/bash
-"$HOME/.claude/scripts/jira-create-ticket.sh"
